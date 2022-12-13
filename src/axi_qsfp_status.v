@@ -10,22 +10,29 @@
 
 module axi_qsfp_status #
 (
-    parameter LANE_COUNT = 1
+    parameter LANE_COUNT = 4
 )
 (
     // Clock and reset
     input clk, resetn,
 
-    // Status signals
-    input                 ss_channel_up,
-    input                 ss_gt_pll_lock,
-    input                 ss_hard_err,
-    input[LANE_COUNT-1:0] ss_lane_up,
-    input                 ss_mcmm_not_locked_out,
-    input                 ss_soft_err,
-    input                 ss_c2c_link_status,
-    input                 ss_c2c_link_error,
-    
+    // Status signals, QSFP 0
+    input                 ss0_channel_up,
+    input                 ss0_gt_pll_lock,
+    input                 ss0_hard_err,
+    input[LANE_COUNT-1:0] ss0_lane_up,
+    input                 ss0_mcmm_not_locked_out,
+    input                 ss0_soft_err,
+
+    // Status signals, QSFP 1
+    input                 ss1_channel_up,
+    input                 ss1_gt_pll_lock,
+    input                 ss1_hard_err,
+    input[LANE_COUNT-1:0] ss1_lane_up,
+    input                 ss1_mcmm_not_locked_out,
+    input                 ss1_soft_err,
+
+
     //================== This is an AXI4-Lite slave interface ==================
         
     // "Specify write address"              -- Master --    -- Slave --
@@ -95,14 +102,20 @@ module axi_qsfp_status #
 
     // Stuff our status signals into a status word
     wire[31:0] status_word;
-    assign status_word[3:0] = ss_lane_up;
-    assign status_word[  4] = ss_channel_up;
-    assign status_word[  5] = ss_gt_pll_lock;
-    assign status_word[  6] = ss_hard_err;
-    assign status_word[  7] = ss_mcmm_not_locked_out;
-    assign status_word[  8] = ss_soft_err;
-    assign status_word[ 16] = ss_c2c_link_status;
-    assign status_word[ 17] = ss_c2c_link_error;
+    assign status_word[  3:0] = ss0_lane_up;
+    assign status_word[    4] = ss0_channel_up;
+    assign status_word[    5] = ss0_gt_pll_lock;
+    assign status_word[    6] = ss0_hard_err;
+    assign status_word[    7] = ss0_mcmm_not_locked_out;
+    assign status_word[    8] = ss0_soft_err;
+
+    assign status_word[19:16] = ss1_lane_up;
+    assign status_word[   20] = ss1_channel_up;
+    assign status_word[   21] = ss1_gt_pll_lock;
+    assign status_word[   22] = ss1_hard_err;
+    assign status_word[   23] = ss1_mcmm_not_locked_out;
+    assign status_word[   24] = ss1_soft_err;
+
 
     //==========================================================================
     // This state machine handles AXI write-requests

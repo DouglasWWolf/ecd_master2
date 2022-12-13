@@ -3,7 +3,7 @@
 #===============================================================================
 
 #
-# The status signals of the QSFP data-channel
+# The status signals of the Aurora/QSFP channels
 #
-#set_false_path -through [get_nets */qsfp_data/qsfp_status/ss_*]
-#set_false_path -through [get_nets  */qsfp_c2c/qsfp_status/ss_*]
+set_false_path -through [get_nets */qsfp_data/qsfp_status/ss0_*]
+set_false_path -through [get_nets */qsfp_data/qsfp_status/ss1_*]

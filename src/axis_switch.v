@@ -60,12 +60,21 @@ assign AXIS_OUT_TVALID = (selector == 1)   ? AXIS_IN1_TVALID :
 assign AXIS_IN1_TREADY = (selector == 1) ? AXIS_OUT_TREADY : 0;
 assign AXIS_IN2_TREADY = (selector == 2) ? AXIS_OUT_TREADY : 0;
 
+//===============================================================================================
+// State machine that drives one of the input streams to the output stream
+//===============================================================================================
 always @(posedge clk) begin
+    
+    // If reset is asserted...
     if (resetn == 0) begin
         selector  <= 0;
         fsm_state <= 0;
+    
+    // Otherwise, run the state machine
     end else case (fsm_state)
 
+    // Here we're waiting for one of the input TVALID lines to go high.
+    // When that happens, we will store the input channel number in 'selector'
     0:  if (AXIS_IN1_TVALID) begin
             selector  <= 1;
             fsm_state <= 1;
@@ -77,6 +86,10 @@ always @(posedge clk) begin
         end
 
 
+    // We get here when an input channel has been selected.  If 1024
+    // consecutive data cycles pass without TVALID being raised, we
+    // will de-select the currently selected input channel and go back
+    // to waiting for a TVALID line to be asserted
     1:  if (AXIS_OUT_TVALID == 0) begin
             if (counter == 1024) begin
                 fsm_state <= 0;
@@ -88,5 +101,6 @@ always @(posedge clk) begin
     endcase
 
 end
+//===============================================================================================
 
 endmodule
