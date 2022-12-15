@@ -86,12 +86,12 @@ always @(posedge clk) begin
         end
 
 
-    // We get here when an input channel has been selected.  If 1024
+    // We get here when an input channel has been selected.  If 128
     // consecutive data cycles pass without TVALID being raised, we
     // will de-select the currently selected input channel and go back
     // to waiting for a TVALID line to be asserted
     1:  if (AXIS_OUT_TVALID == 0) begin
-            if (counter == 1024) begin
+            if (counter == 128) begin
                 fsm_state <= 0;
                 selector  <= 0;
             end
