@@ -66,8 +66,8 @@ preplace netloc aurora_tx_M_AXIS1 1 1 2 NJ 960 1000J
 levelinfo -pg 1 0 190 670 1210 1790 2060
 pagesize -pg 1 -db -bbox -sgen -160 0 2240 1560
 ",
-   "No Loops_ScaleFactor":"0.494079",
-   "No Loops_TopLeft":"-461,2",
+   "No Loops_ScaleFactor":"0.48141",
+   "No Loops_TopLeft":"-403,0",
    "guistr":"# # String gsaved with Nlview 7.0r4  2019-12-20 bk=1.5203 VDI=41 GEI=36 GUI=JA:10.0 TLS
 #  -string -flagsOSRD
 preplace port qsfp0_clk -pg 1 -lvl 0 -x -360 -y 150 -defaultsOSRD

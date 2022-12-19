@@ -1,6 +1,9 @@
 export project=sidewinder
 export folder=.
 
+rm -rf ${project}.hw/webtalk/*
+rm -rf ${project}.hw/webtalk/\.x*
+
 git add ${folder}/${project}.gen
 git add ${folder}/${project}.hw
 git add ${folder}/${project}.ip_user_files

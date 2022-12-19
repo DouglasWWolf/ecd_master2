@@ -17,8 +17,8 @@ module ecd_master_ctrl
 (
     input clk, resetn,
 
-    // Interrupt request signals for the ping-pong buffers
-    output IRQ_PPB0, IRQ_PPB1,
+    // Interrupt request signals that the PC's buffer has been fully read
+    output reg IRQ_EOB,
 
     // This is high when data is being received from the PCI bridge and thrown away
     output DRAINING,
@@ -155,13 +155,11 @@ module ecd_master_ctrl
     reg[31:0] axi_register[0:4];
 
     // Some convenient human readable names for the AXI registers
-    localparam REG_PPB0H    = 0;   // Ping Pong Buffer #0, hi 32-bits
-    localparam REG_PPB0L    = 1;   // Ping Pong Buffer #0, lo 32-bits
-    localparam REG_PPB1H    = 2;   // Ping Pong Buffer #1, hi 32-bits
-    localparam REG_PPB1L    = 3;   // Ping Pong Buffer #1, lo 32-bits
-    localparam REG_PPB_SIZE = 4;   // Ping Pong buffer size in 2048-byte blocks
-    localparam REG_START    = 10;  // A write to this register starts data transfer
-    localparam REG_PPB_RDY  = 11;  // Used to signal that a PPB has been loaded with data
+    localparam REG_BUFFH     = 0;   // Ping Pong Buffer #0, hi 32-bits
+    localparam REG_BUFFL     = 1;   // Ping Pong Buffer #0, lo 32-bits
+    localparam REG_BUFF_SIZE = 2;   // Ping Pong buffer size in 2048-byte blocks
+    localparam REG_START     = 3;   // A write to this register starts data transfer
+    
     
     // These are the valid values for ashi_rresp and ashi_wresp
     localparam OKAY   = 0;
@@ -181,13 +179,7 @@ module ecd_master_ctrl
 
     // This will strobe to 1 when it's time to start fetching data from the master interface
     reg start_fetching_data;
-
-    // Bit flags that say whether a particular ping-pong buffer has data in it
-    reg[1:0] ppb_ready;
-
-    // When either of these bits goes high, the corresponding bit in ppb_ready goes high
-    reg[1:0] signal_ppb_ready;
-
+    
     // This is the state of the state machine that places read requests onto the AR channel
     reg[3:0] fsm_state;
 
@@ -213,11 +205,7 @@ module ecd_master_ctrl
     // back in their original order (The PCI bridge delivers them to us in little-endian)
     genvar x;
     for (x=0; x<64; x=x+1) assign AXIS_TX_TDATA[x*8+7:x*8] = M_AXI_RDATA[(63-x)*8+7:(63-x)*8];
-    
-    // The interrupt request lines to signal when a ping-pong buffer is empty
-    reg[1:0] irq_ppb;
-    assign IRQ_PPB0 = irq_ppb[0];
-    assign IRQ_PPB1 = irq_ppb[1];
+   
 
     //==========================================================================
     // World's simplest state machine for handling write requests
@@ -226,17 +214,13 @@ module ecd_master_ctrl
 
         // When these goes high, they only stay high for once cycle
         start_fetching_data <= 0;
-        signal_ppb_ready    <= 0;
 
         // If we're in reset, initialize important registers
         if (resetn == 0) begin
             ctrl_write_state <= 0;
-            axi_register[REG_PPB0H   ] <= 0;
-            axi_register[REG_PPB0L   ] <= 32'hC000_0000;
-            axi_register[REG_PPB1H   ] <= 0;
-            axi_register[REG_PPB1L   ] <= 32'hC001_0000;
-            axi_register[REG_PPB_SIZE] <= 8;
-
+            axi_register[REG_BUFFH    ] <= 0;
+            axi_register[REG_BUFFL    ] <= 32'hC000_0000;
+            axi_register[REG_BUFF_SIZE] <= 8;
 
         // If we're not in reset, and a write-request has occured...        
         end else if (ashi_write) begin
@@ -248,16 +232,10 @@ module ecd_master_ctrl
             case ((ashi_waddr & ADDR_MASK) >> 2)
                 
                 // Allow a write to any valid register
-                REG_PPB0H:    axi_register[REG_PPB0H   ] <= ashi_wdata;
-                REG_PPB0L:    axi_register[REG_PPB0L   ] <= ashi_wdata;
-                REG_PPB1H:    axi_register[REG_PPB1H   ] <= ashi_wdata;
-                REG_PPB1L:    axi_register[REG_PPB1L   ] <= ashi_wdata;
-                REG_PPB_SIZE: axi_register[REG_PPB_SIZE] <= ashi_wdata;
-                REG_START:    start_fetching_data        <= 1;
-                REG_PPB_RDY:  begin
-                                if (ashi_wdata[0]) signal_ppb_ready[0] <= 1;
-                                if (ashi_wdata[1]) signal_ppb_ready[1] <= 1;
-                              end
+                REG_BUFFH:     axi_register[REG_BUFFH    ] <= ashi_wdata;
+                REG_BUFFL:     axi_register[REG_BUFFL    ] <= ashi_wdata;
+                REG_BUFF_SIZE: axi_register[REG_BUFF_SIZE] <= ashi_wdata;
+                REG_START:     start_fetching_data         <= 1;
                 
                 // Writes to any other register are a decode-error
                 default: ashi_wresp <= DECERR;
@@ -287,12 +265,9 @@ module ecd_master_ctrl
             case ((ashi_raddr & ADDR_MASK) >> 2)
 
                 // Allow a read from any valid register                
-                REG_PPB0H:    ashi_rdata <= axi_register[REG_PPB0H   ];
-                REG_PPB0L:    ashi_rdata <= axi_register[REG_PPB0L   ];
-                REG_PPB1H:    ashi_rdata <= axi_register[REG_PPB1H   ];
-                REG_PPB1L:    ashi_rdata <= axi_register[REG_PPB1L   ];
-                REG_PPB_SIZE: ashi_rdata <= axi_register[REG_PPB_SIZE];
-                REG_PPB_RDY:  ashi_rdata <= {30'h0, ppb_ready};
+                REG_BUFFH:     ashi_rdata <= axi_register[REG_BUFFH    ];
+                REG_BUFFL:     ashi_rdata <= axi_register[REG_BUFFL    ];
+                REG_BUFF_SIZE: ashi_rdata <= axi_register[REG_BUFF_SIZE];
 
                 // Reads of any other register are a decode-error
                 default: ashi_rresp <= DECERR;
@@ -302,21 +277,14 @@ module ecd_master_ctrl
     //==========================================================================
 
 
-
     //==========================================================================
     // This state machine places read-requests on the AR channel of the AXI
     // Master bus
     //==========================================================================
-    reg       ppb_index;
     reg[31:0] blocks_remaining;
     //==========================================================================
 
     always @(posedge clk) begin
-
-
-        // Watch for the signals that tell us that a ping-pong buffer has been loaded with data
-        if (signal_ppb_ready[0]) ppb_ready[0] <= 1;
-        if (signal_ppb_ready[1]) ppb_ready[1] <= 1;
 
         if (resetn == 0) begin
             fsm_state     <= 0;
@@ -327,22 +295,17 @@ module ecd_master_ctrl
 
         // Here we're idle, waiting to be told to start fetching data
         0:  if (start_fetching_data) begin
-                ppb_ready <= -1;
-                ppb_index <= 0;
                 fsm_state <= 1;
             end
 
-        // If this ping-pong buffer is loaded with data...
-        1:  if (ppb_ready[ppb_index]) begin
+        // Issue an AXI read-request for the first block of the PC's buffer
+        1:  begin
                 
-                // Determine the starting PCI address of this buffer 
-                if (ppb_index == 0)
-                    M_AXI_ARADDR <= {axi_register[REG_PPB0H], axi_register[REG_PPB0L]};
-                else
-                    M_AXI_ARADDR <= {axi_register[REG_PPB1H], axi_register[REG_PPB1L]};                
-    
+                // Determine the starting PCI address of the PC's buffer 
+                M_AXI_ARADDR <= {axi_register[REG_BUFFH], axi_register[REG_BUFFL]};
+            
                 // Fetch the number of blocks remaining to be read-in from this buffer
-                blocks_remaining <= axi_register[REG_PPB_SIZE];
+                blocks_remaining <= axi_register[REG_BUFF_SIZE];
 
                 // The AR channel now contains valid data
                 M_AXI_ARVALID <= 1;
@@ -356,8 +319,6 @@ module ecd_master_ctrl
         2:  if (M_AXI_ARREADY & M_AXI_ARVALID) begin
                 if (blocks_remaining == 1) begin
                     M_AXI_ARVALID        <= 0;
-                    ppb_ready[ppb_index] <= 0;
-                    ppb_index            <= ~ppb_index;
                     fsm_state            <= 1;
                 end else begin
                     M_AXI_ARADDR         <= M_AXI_ARADDR + BYTES_PER_BURST;
@@ -377,35 +338,30 @@ module ecd_master_ctrl
     // last block in a buffer has been received.
     //==========================================================================
     reg [31:0] blocks_remaining_to_read;
-    reg        r_buffer_index;
     //==========================================================================
     always @(posedge clk) begin
 
         // When an interrupt-request line is raised, it should only strobe high for one cycle
-        irq_ppb <= 0;
+        IRQ_EOB <= 0;
 
         // If we've just been told that "data fetching" (i.e., DMA transfers) has begun,
         // initialize our variables 
         if (start_fetching_data) begin
-            blocks_remaining_to_read <= axi_register[REG_PPB_SIZE];
-            r_buffer_index           <= 0;            
+            blocks_remaining_to_read <= axi_register[REG_BUFF_SIZE];
         end
 
         // If we're fetching data, and this is a valid data cycle from the PCI bridge, and 
         // this is the last cycle of a block...
         else if (~fsm_idle & M_AXI_RREADY & M_AXI_RVALID & M_AXI_RLAST) begin
             
-            // If this was the last block that was available in this buffer...
+            // If this was the last block that was available in the buffer...
             if (blocks_remaining_to_read == 1) begin
                 
                 // Reload our counter of blocks remaining to be read
-                blocks_remaining_to_read <= axi_register[REG_PPB_SIZE];
+                blocks_remaining_to_read <= axi_register[REG_BUFF_SIZE];
                 
-                // Raise the interrupt that says "this buffer is empty"
-                irq_ppb[r_buffer_index] <= 1;
-                
-                // Switch to the other buffer
-                r_buffer_index <= ~r_buffer_index;
+                // Raise the interrupt that says "the buffer is empty"
+                IRQ_EOB <= 1;
             end
 
             // Otherwise, if this was not the last block available in the buffer,
