@@ -13,6 +13,7 @@
 Usage:
     In register 0 (offset 0x00), store a 32 bit AXI address
     A write to register 1 (offset 0x04) will perform the AXI write to the EECD
+    A read of register 1 (offset 0x04) will perform the AXI read from the EECD
 */
 
 
