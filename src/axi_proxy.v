@@ -21,10 +21,17 @@ module axi_proxy
     // Clock and reset
     input clk, resetn,
 
-    //========================  AXI Stream interface  ==========================
-    output reg[511:0]  AXIS_TDATA,
-    output reg         AXIS_TVALID,
-    input              AXIS_TREADY,
+    //================  AXI Stream interface for the AXI request ===============
+    output[511:0]  AXIS_OUT_TDATA,
+    output reg     AXIS_OUT_TVALID,
+    input          AXIS_OUT_TREADY,
+    //==========================================================================
+
+
+    //===============  AXI Stream interface for the AXI response ===============
+    input[255:0]  AXIS_IN_TDATA,
+    input         AXIS_IN_TVALID,
+    output reg    AXIS_IN_TREADY,
     //==========================================================================
 
 
@@ -79,12 +86,34 @@ module axi_proxy
     wire        ashi_ridle;     // Output: 1 = Read state machine is idle
     //==========================================================================
 
-    // The state of our two state machines
-    reg[2:0] read_state, write_state;
+
+    //===============================================================================================
+    // Field definitions for the TDATA lines
+    //===============================================================================================
+
+    // Fields of the input stream
+    wire[31:0] axi_addr_in = AXIS_IN_TDATA[31:00];
+    wire[31:0] axi_data_in = AXIS_IN_TDATA[63:32];
+    wire[ 2:0] axi_resp_in = AXIS_IN_TDATA[66:64];
+
+    // Address and data registers for AXI4-Lite reads and writes
+    reg[31:0] axi_addr_out; assign AXIS_OUT_TDATA[31:00] = axi_addr_out;
+    reg[31:0] axi_data_out; assign AXIS_OUT_TDATA[63:32] = axi_data_out;
+    reg       axi_mode_out; assign AXIS_OUT_TDATA[64   ] = axi_mode_out;
+
+    // Set the packet-type to 1
+    assign AXIS_OUT_TDATA[511:504] = 1;
+    //===============================================================================================
+
+    localparam AXI_MODE_WRITE = 0;
+    localparam AXI_MODE_READ  = 1;
+
+    // The state of our state machines
+    reg[1:0] fsm_state, next_state;
 
     // The state machines are idle when they're in state 0 when their "start" signals are low
-    assign ashi_widle = (ashi_write == 0) && (write_state == 0);
-    assign ashi_ridle = (ashi_read  == 0) && (read_state  == 0);
+    assign ashi_widle = (ashi_write == 0) && (fsm_state == 0);
+    assign ashi_ridle = (ashi_read  == 0) && (fsm_state == 0);
 
     // These are the valid values for ashi_rresp and ashi_wresp
     localparam OKAY   = 0;
@@ -96,83 +125,114 @@ module axi_proxy
     localparam ADDR_MASK = 7'h7F;
 
     // This will hold the values that get written to the AXI registers
-    reg[31:0] axi_register[0:1];
+    reg[31:0] axi_register[0:0];
+
+    // The possible states of our state machine
+    localparam FSM_WAIT_FOR_AXI_CMD     = 0;
+    localparam FSM_AXI_STREAM_HANDSHAKE = 1;
+    localparam FSM_WAIT_FOR_WRESP       = 2;
+    localparam FSM_WAIT_FOR_RRESP       = 3; 
 
     //==========================================================================
-    // This state machine handles AXI write-requests
+    // This state machine handles both AXI-write and AXI-read requests
     //==========================================================================
     always @(posedge clk) begin
 
-        AXIS_TVALID <= 0;
-        
         // If we're in reset, initialize important registers
         if (resetn == 0) begin
-            write_state  <= 0;
+            fsm_state       <= 0;
+            AXIS_OUT_TVALID <= 0;
+            AXIS_IN_TREADY  <= 0;
         
         // If we're not in reset...
-        end else begin
+        end else case(fsm_state)
 
             // If a write-request has come in...
-            if (ashi_write) begin
+            FSM_WAIT_FOR_AXI_CMD:
+                
+                // If the AXI master wants us to perform an AXI4-Lite write...
+                if (ashi_write) begin
 
-                // Assume for a moment that we will be reporting "OKAY" as a write-response
-                ashi_wresp <= OKAY;
+                    // Assume for a moment that we will be reporting "OKAY" as a write-response
+                    ashi_wresp <= OKAY;
 
-                case((ashi_waddr & ADDR_MASK) >> 2)
+                    case((ashi_waddr & ADDR_MASK) >> 2)
 
-                    // If the user wants to store an AXI register address.
-                    0:  axi_register[0] <= ashi_wdata;
+                        // If the user wants to store an AXI register address.
+                        0:  axi_register[0] <= ashi_wdata;
 
-                    // If the user wants to write a value to the stored AXI register address...
-                    1:  begin
-                            axi_register[1]     <= ashi_wdata;      // Store the data value
-                            AXIS_TDATA[31: 0]   <= ashi_wdata;      // Stuff the data value into TDATA
-                            AXIS_TDATA[63:32]   <= axi_register[0]; // Stuff the AXI address into TDATA
-                            AXIS_TDATA[511:480] <= 32'hbeadcafe;    // Stuff the 1st marker into TDATA
-                            AXIS_TDATA[479:448] <= 32'hfadedbad;    // Stuff the 2nd marker into TDATA
-                            AXIS_TVALID         <= 1;               // And declare TDATA valid for 1 cycle
-                        end
+                        // If the user wants to write a value to the stored AXI register address...
+                        1:  begin
+                                axi_addr_out    <= axi_register[0]; // Stuff the AXI address into TDATA
+                                axi_data_out    <= ashi_wdata;      // Stuff the data value into TDATA 
+                                axi_mode_out    <= AXI_MODE_WRITE;  // This will be an AXI write
+                                AXIS_OUT_TVALID <= 1;               // And declare TDATA valid for 1 cycle
+                                fsm_state       <= FSM_AXI_STREAM_HANDSHAKE;
+                                next_state      <= FSM_WAIT_FOR_WRESP;
+                            end
 
-                    // A write to any other address is a slave-error
-                    default: ashi_wresp <= SLVERR;
-                endcase
-            end
+                        // A write to any other address is a slave-error
+                        default: ashi_wresp <= SLVERR;
+                    endcase
+                end
 
-        end
+                // If the AXI master wants us to perform an AXI4-Lite read...
+                else if (ashi_read) begin
+
+                    // Assume for a moment that we will be reporting "OKAY" as a read-response
+                    ashi_rresp <= OKAY;
+
+                    case((ashi_raddr & ADDR_MASK) >> 2)
+
+                        // If the user wants to read the AXI address register.
+                        0:  ashi_rdata <= axi_register[0];
+
+                        // If the user wants to write a value to the stored AXI register address...
+                        1:  begin
+                                axi_addr_out    <= axi_register[0]; // Stuff the AXI address into TDATA
+                                axi_data_out    <= 32'hDEAD_BEEF;   // Doesn't matter what we stuff here
+                                axi_mode_out    <= AXI_MODE_READ;   // This will be an AXI read
+                                AXIS_OUT_TVALID <= 1;               // And declare TDATA valid for 1 cycle
+                                fsm_state       <= FSM_AXI_STREAM_HANDSHAKE;
+                                next_state      <= FSM_WAIT_FOR_RRESP;
+                            end
+
+                        // A write to any other address is a slave-error
+                        default: ashi_rresp <= SLVERR;
+                    endcase
+                end
+
+
+            // Here we wait for the AXI-Stream write to be accepted
+            FSM_AXI_STREAM_HANDSHAKE:
+                
+                if (AXIS_OUT_TVALID & AXIS_OUT_TREADY) begin
+                    AXIS_OUT_TVALID <= 0;
+                    AXIS_IN_TREADY  <= 1;
+                    fsm_state       <= next_state;
+                end
+
+            // Now we wait for the response to an AXI write
+            FSM_WAIT_FOR_WRESP:
+
+                if (AXIS_IN_TREADY && AXIS_IN_TVALID) begin
+                    AXIS_IN_TREADY <= 0;
+                    ashi_wresp     <= axi_resp_in;
+                    fsm_state      <= FSM_WAIT_FOR_AXI_CMD;
+                end 
+
+            // Now we wait for the response to an AXI read
+            FSM_WAIT_FOR_RRESP:
+
+                if (AXIS_IN_TREADY && AXIS_IN_TVALID) begin
+                    AXIS_IN_TREADY <= 0;
+                    ashi_rresp     <= axi_resp_in;
+                    ashi_rdata     <= axi_data_in;
+                    fsm_state      <= FSM_WAIT_FOR_AXI_CMD;
+                end 
+        endcase
     end
     //==========================================================================
-
-
- 
-    //==========================================================================
-    // World's simplest state machine for handling read requests
-    //==========================================================================
-    always @(posedge clk) begin
-
-        // If we're in reset, initialize important registers
-        if (resetn == 0) begin
-            read_state <= 0;
-        
-        // If we're not in reset, and a read-request has occured...        
-        end else if (ashi_read) begin
-        
-            // We'll always acknowledge the read as valid
-            ashi_rresp <= OKAY;
-
-            case((ashi_raddr & ADDR_MASK) >> 2)
-                // If the user wants to read the IRQ map
-                0:  ashi_rdata <= axi_register[0];
-
-                // If the user wants to read the number of interrupts generated...
-                1:  ashi_rdata <= axi_register[1];
-
-                // A read of any other address returns a constant
-                default: ashi_rdata <= 32'h42;
-            endcase
-        end
-    end
-    //==========================================================================
-
 
 
 
