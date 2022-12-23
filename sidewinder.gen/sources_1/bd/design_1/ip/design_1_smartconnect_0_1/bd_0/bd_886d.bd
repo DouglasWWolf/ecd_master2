@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x500B4A8D8ADFCD25",
+      "boundary_crc": "0x2C68F3148FA4A2B3",
       "design_src": "SBD",
       "device": "xczu19eg-ffvc1760-2-i",
       "name": "bd_886d",
@@ -1053,28 +1053,28 @@
             "value_src": "default"
           },
           "HAS_BURST": {
-            "value": "0",
-            "value_src": "ip"
+            "value": "1",
+            "value_src": "default"
           },
           "HAS_CACHE": {
-            "value": "0",
-            "value_src": "ip"
+            "value": "1",
+            "value_src": "default"
           },
           "HAS_LOCK": {
-            "value": "0",
-            "value_src": "ip"
+            "value": "1",
+            "value_src": "default"
           },
           "HAS_PROT": {
             "value": "1",
             "value_src": "default"
           },
           "HAS_QOS": {
-            "value": "0",
-            "value_src": "ip"
+            "value": "1",
+            "value_src": "default"
           },
           "HAS_REGION": {
-            "value": "0",
-            "value_src": "constant"
+            "value": "1",
+            "value_src": "default"
           },
           "HAS_RRESP": {
             "value": "1",
@@ -1093,17 +1093,20 @@
             "value_src": "default"
           },
           "MAX_BURST_LENGTH": {
-            "value": "1"
+            "value": "256",
+            "value_src": "default"
           },
           "NUM_READ_OUTSTANDING": {
-            "value": "8"
+            "value": "1",
+            "value_src": "default"
           },
           "NUM_READ_THREADS": {
             "value": "1",
             "value_src": "default"
           },
           "NUM_WRITE_OUTSTANDING": {
-            "value": "32"
+            "value": "1",
+            "value_src": "default"
           },
           "NUM_WRITE_THREADS": {
             "value": "1",
@@ -1114,25 +1117,28 @@
             "value_src": "default"
           },
           "PROTOCOL": {
-            "value": "AXI4LITE",
-            "value_src": "ip"
+            "value": "AXI4",
+            "value_src": "default"
           },
           "READ_WRITE_MODE": {
             "value": "READ_WRITE",
             "value_src": "default"
           },
           "RUSER_BITS_PER_BYTE": {
-            "value": "0"
+            "value": "0",
+            "value_src": "default"
           },
           "RUSER_WIDTH": {
             "value": "0",
             "value_src": "default"
           },
           "SUPPORTS_NARROW_BURST": {
-            "value": "0"
+            "value": "0",
+            "value_src": "default"
           },
           "WUSER_BITS_PER_BYTE": {
-            "value": "0"
+            "value": "0",
+            "value_src": "default"
           },
           "WUSER_WIDTH": {
             "value": "0",
@@ -1301,36 +1307,6 @@
             "value_src": "default"
           }
         }
-      },
-      "aclk1": {
-        "type": "clk",
-        "direction": "I",
-        "parameters": {
-          "ASSOCIATED_CLKEN": {
-            "value": "s_sc_aclken",
-            "value_src": "constant"
-          },
-          "CLK_DOMAIN": {
-            "value": "design_1_util_ds_buf_0_0_IBUF_OUT",
-            "value_src": "default_prop"
-          },
-          "FREQ_HZ": {
-            "value": "100000000",
-            "value_src": "ip_prop"
-          },
-          "FREQ_TOLERANCE_HZ": {
-            "value": "0",
-            "value_src": "default"
-          },
-          "INSERT_VIP": {
-            "value": "0",
-            "value_src": "default"
-          },
-          "PHASE": {
-            "value": "0.0",
-            "value_src": "ip_prop"
-          }
-        }
       }
     },
     "components": {
@@ -1417,10 +1393,6 @@
             "direction": "O"
           },
           "aclk": {
-            "type": "clk",
-            "direction": "I"
-          },
-          "aclk1": {
             "type": "clk",
             "direction": "I"
           }
@@ -13116,12 +13088,6 @@
       }
     },
     "nets": {
-      "aclk1_1": {
-        "ports": [
-          "aclk1",
-          "clk_map/aclk1"
-        ]
-      },
       "aclk_net": {
         "ports": [
           "aclk",
