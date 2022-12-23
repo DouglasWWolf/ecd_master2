@@ -14,7 +14,7 @@
 
 module req_manager
 (
-    input clk, resetn,
+    input clk, resetn, 
 
     //==========================  AXI Stream interface for request input  ===========================
     input[31:0]         AXIS_RQ_TDATA,
@@ -22,18 +22,28 @@ module req_manager
     output              AXIS_RQ_TREADY,
     //===============================================================================================
 
-
-    //==========================  AXI Stream interface for data input  ==============================
-    input[511:0]        AXIS_RX_TDATA,
-    input               AXIS_RX_TVALID,
-    output reg          AXIS_RX_TREADY,
+    //===========================  AXI Stream interface for data input #0 ===========================
+    input[511:0]        AXIS_RX0_TDATA,
+    input               AXIS_RX0_TVALID,
+    output              AXIS_RX0_TREADY,
     //===============================================================================================
 
+    //===========================  AXI Stream interface for data input #1 ===========================
+    input[511:0]        AXIS_RX1_TDATA,
+    input               AXIS_RX1_TVALID,
+    output              AXIS_RX1_TREADY,
+    //===============================================================================================
 
     //========================  AXI Stream interface for data_output  ===============================
     output reg[511:0]  AXIS_TX_TDATA,
     output reg         AXIS_TX_TVALID,
-    input              AXIS_TX_TREADY
+    input              AXIS_TX_TREADY,
+    //===============================================================================================
+
+    //======================  AXI Stream interface to the row buffering FIFO  =======================
+    output reg[511:0]  AXIS_RBF_TDATA,
+    output reg         AXIS_RBF_TVALID,
+    input              AXIS_RBF_TREADY
     //===============================================================================================
 
 );
@@ -43,9 +53,6 @@ localparam RX_BEATS_PER_PACKET = 32;
 
 // Define the AXIS handshake for each stream
 wire RQ_HANDSHAKE = AXIS_RQ_TVALID & AXIS_RQ_TREADY;
-wire TX_HANDSHAKE = AXIS_TX_TVALID & AXIS_TX_TREADY;
-wire RX_HANDSHAKE = AXIS_RX_TVALID & AXIS_RX_TREADY;
-
 
 //===================================================================================================
 // State machine that allows incoming data-requests to flow in
@@ -108,10 +115,21 @@ end
 //===================================================================================================
 // flow state machine: main state machine that waits for a data-request to arrive, then transmits
 // a 1 cycle packet header, 32 cycles of packet data, and 1 cycle of packet footer
+//
+// The sources of the received row data alternates between AXIS_RX0 and AXIS_RX1
 //===================================================================================================
+reg        input_sel;
 reg[2:0]   fsm_state;
 reg[31:0]  req_id;
 reg[7:0]   beat_countdown;
+reg[1:0]   AXIS_RXn_TREADY;
+
+// The TREADY lines of the two RX inputs are driven by AXIS_RXn_TREADY
+assign AXIS_RX0_TREADY = AXIS_RXn_TREADY[0];
+assign AXIS_RX1_TREADY = AXIS_RXn_TREADY[1];
+
+// AXIS_RXn_TVALID always reflects the TVALID line of the currently selected input
+wire AXIS_RXn_TVALID = (input_sel == 0) ? AXIS_RX0_TVALID : AXIS_RX1_TVALID;
 //===================================================================================================
 
 localparam FSM_WAIT_FOR_REQ    = 0;
@@ -125,9 +143,10 @@ always @(posedge clk) begin
     get_new_rq <= 0;
     
     if (resetn == 0) begin
-        AXIS_TX_TVALID <= 0;
-        AXIS_RX_TREADY <= 0;
-        fsm_state      <= FSM_WAIT_FOR_REQ;
+        AXIS_TX_TVALID  <= 0;
+        AXIS_RXn_TREADY <= 0;
+        input_sel       <= 0;
+        fsm_state       <= FSM_WAIT_FOR_REQ;
     end else case(fsm_state)
 
 
@@ -146,7 +165,7 @@ always @(posedge clk) begin
             AXIS_TX_TVALID <= 1;
 
             // We're ready to receive data that data that should be transmitted
-            AXIS_RX_TREADY <= 1;
+            AXIS_RXn_TREADY = (input_sel == 0) ? 1:2;
 
             // Allow another data-request to get buffered up
             get_new_rq <= 1;
@@ -161,16 +180,28 @@ always @(posedge clk) begin
 
     
     FSM_SEND_DATA:
-        if (AXIS_RX_TVALID) begin
-            AXIS_TX_TDATA  <= AXIS_RX_TDATA;
+        if (AXIS_RXn_TVALID) begin
+
+            // Drop the RX data onto the TX data bus
+            AXIS_TX_TDATA  <= (input_sel == 0) ? AXIS_RX0_TDATA : AXIS_RX1_TDATA;
             AXIS_TX_TVALID <= 1;
+
+            // If input_sel is 0, write the RX data to the row-buffer FIFO
+            AXIS_RBF_TDATA  <= (input_sel == 0) ? AXIS_RX0_TDATA : AXIS_RX1_TDATA;
+            AXIS_RBF_TVALID <= (input_sel == 0);
+
+            // If this is the last beat of the row, halt the RX input and go emit the footer data-cycle
             if (beat_countdown == 1) begin
-                AXIS_RX_TREADY <= 0;
-                fsm_state      <= FSM_EMIT_FOOTER;
+                AXIS_RXn_TREADY <= 0;
+                fsm_state       <= FSM_EMIT_FOOTER;
             end
+
+            // Keep track of how many data-cycles remain to be read
             beat_countdown <= beat_countdown - 1;
+        
         end else begin
-            AXIS_TX_TVALID <= 0;
+            AXIS_TX_TVALID  <= 0;
+            AXIS_RBF_TVALID <= 0;
         end
         
 
@@ -180,8 +211,10 @@ always @(posedge clk) begin
         // Our last data-beat has finished transmitting, so place a packet
         // footer on the TX data-bus and go wait for it to be accepted
         begin
-            AXIS_TX_TDATA <= req_id;
-            fsm_state     <= FSM_WAIT_FOR_FINISH;
+            AXIS_RBF_TVALID <= 0;                   // We're not writing data to the row-buffer FIFO
+            AXIS_TX_TDATA   <= req_id;              // This is the footer data-cycle that we write
+            input_sel       <= ~input_sel;          // Switch the RX stream to the "other" RX stream
+            fsm_state       <= FSM_WAIT_FOR_FINISH; // And go wait for the footer-cycle to be accepted
         end
 
     FSM_WAIT_FOR_FINISH:
@@ -202,14 +235,13 @@ always @(posedge clk) begin
                 AXIS_TX_TVALID <= 1;
 
                 // We're ready to receive data to be retransmitted
-                AXIS_RX_TREADY <= 1;
+                AXIS_RXn_TREADY = (input_sel == 0) ? 1:2;
 
                 // Allow another data-request to get buffered up
                 get_new_rq <= 1;
 
                 // This is how many beats of RX data we have left to send
                 beat_countdown <= RX_BEATS_PER_PACKET;
-
 
                 // Go start emitting packet data
                 fsm_state <= FSM_SEND_DATA;
