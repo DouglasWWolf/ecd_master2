@@ -21,6 +21,7 @@ module ecd_master_ctrl
     output reg IRQ_EOB,
 
     // This is high when data is being received from the PCI bridge and thrown away
+    // This is for debugging only, and is not normally connected to anythings
     output DRAINING,
 
     //================== This is an AXI4-Lite slave interface ==================
@@ -155,17 +156,16 @@ module ecd_master_ctrl
     reg[31:0] axi_register[0:4];
 
     // Some convenient human readable names for the AXI registers
-    localparam REG_BUFFH     = 0;   // Ping Pong Buffer #0, hi 32-bits
-    localparam REG_BUFFL     = 1;   // Ping Pong Buffer #0, lo 32-bits
-    localparam REG_BUFF_SIZE = 2;   // Ping Pong buffer size in 2048-byte blocks
+    localparam REG_BUFFH     = 0;   // Hi 32-bits of start of the buffer on the PC
+    localparam REG_BUFFL     = 1;   // Lo 32-bits of start of the buffer on the PC
+    localparam REG_BUFF_SIZE = 2;   // PC buffer size in 2048-byte block
     localparam REG_START     = 3;   // A write to this register starts data transfer
-    
+    localparam REG_PAUSE     = 4;   // A non-zero value in this register pauses DMA transfers       
     
     // These are the valid values for ashi_rresp and ashi_wresp
     localparam OKAY   = 0;
     localparam SLVERR = 2;
     localparam DECERR = 3;
-   
 
     // An AXI slave is gauranteed a minimum of 128 bytes of address space
     // (128 bytes is 32 32-bit registers)
@@ -188,6 +188,9 @@ module ecd_master_ctrl
 
     // For debugging only: this goes high when data DMA'd from the PCI bridge is being thrown away
     assign DRAINING = fsm_idle & M_AXI_RVALID & M_AXI_RREADY;
+    
+    // The pause_dma signal will be high when DMA transfers are paused
+    wire pause_dma = (axi_register[REG_PAUSE] != 0);
 
     // Burst parameters never change.  Burst type is INCR
     assign M_AXI_ARSIZE  = $clog2(M_AXI_DATA_BYTES);
@@ -195,7 +198,7 @@ module ecd_master_ctrl
     assign M_AXI_ARBURST = 1;
 
     // The AXI-Stream output is driven directly from the AXI Master interface    
-    assign AXIS_TX_TVALID = M_AXI_RVALID & ~fsm_idle;
+    assign AXIS_TX_TVALID = M_AXI_RVALID && ~fsm_idle;
     
     // We're ready to receive data from the PCI bus if the FIFO is ready for data or
     // if we're idle.   If we're idle, the data is just thrown away
@@ -206,7 +209,6 @@ module ecd_master_ctrl
     genvar x;
     for (x=0; x<64; x=x+1) assign AXIS_TX_TDATA[x*8+7:x*8] = M_AXI_RDATA[(63-x)*8+7:(63-x)*8];
    
-
     //==========================================================================
     // World's simplest state machine for handling write requests
     //==========================================================================
@@ -215,12 +217,18 @@ module ecd_master_ctrl
         // When these goes high, they only stay high for once cycle
         start_fetching_data <= 0;
 
+        // The PAUSE register always counts down to zero
+        if (axi_register[REG_PAUSE]) begin
+            axi_register[REG_PAUSE] <= axi_register[REG_PAUSE] - 1;
+        end
+
         // If we're in reset, initialize important registers
         if (resetn == 0) begin
             ctrl_write_state <= 0;
             axi_register[REG_BUFFH    ] <= 0;
-            axi_register[REG_BUFFL    ] <= 32'hC000_0000;
-            axi_register[REG_BUFF_SIZE] <= 8;
+            axi_register[REG_BUFFL    ] <= 0;
+            axi_register[REG_BUFF_SIZE] <= 0;
+            axi_register[REG_PAUSE    ] <= 0;
 
         // If we're not in reset, and a write-request has occured...        
         end else if (ashi_write) begin
@@ -235,8 +243,9 @@ module ecd_master_ctrl
                 REG_BUFFH:     axi_register[REG_BUFFH    ] <= ashi_wdata;
                 REG_BUFFL:     axi_register[REG_BUFFL    ] <= ashi_wdata;
                 REG_BUFF_SIZE: axi_register[REG_BUFF_SIZE] <= ashi_wdata;
+                REG_PAUSE:     axi_register[REG_PAUSE    ] <= ashi_wdata;
                 REG_START:     start_fetching_data         <= 1;
-                
+
                 // Writes to any other register are a decode-error
                 default: ashi_wresp <= DECERR;
             endcase
@@ -268,6 +277,7 @@ module ecd_master_ctrl
                 REG_BUFFH:     ashi_rdata <= axi_register[REG_BUFFH    ];
                 REG_BUFFL:     ashi_rdata <= axi_register[REG_BUFFL    ];
                 REG_BUFF_SIZE: ashi_rdata <= axi_register[REG_BUFF_SIZE];
+                REG_PAUSE:     ashi_rdata <= axi_register[REG_PAUSE    ];
 
                 // Reads of any other register are a decode-error
                 default: ashi_rresp <= DECERR;
@@ -299,7 +309,7 @@ module ecd_master_ctrl
             end
 
         // Issue an AXI read-request for the first block of the PC's buffer
-        1:  begin
+        1:  if (!pause_dma) begin
                 
                 // Determine the starting PCI address of the PC's buffer 
                 M_AXI_ARADDR <= {axi_register[REG_BUFFH], axi_register[REG_BUFFL]};
@@ -316,14 +326,22 @@ module ecd_master_ctrl
 
 
         // If our read-request was accepted...
-        2:  if (M_AXI_ARREADY & M_AXI_ARVALID) begin
+        2:  if (M_AXI_ARREADY) begin
+                
+                // If we just issued the read-request for the last block in the PC buffer...
                 if (blocks_remaining == 1) begin
-                    M_AXI_ARVALID        <= 0;
-                    fsm_state            <= 1;
-                end else begin
-                    M_AXI_ARADDR         <= M_AXI_ARADDR + BYTES_PER_BURST;
-                    M_AXI_ARVALID        <= 1;
-                    blocks_remaining     <= blocks_remaining - 1;
+                    M_AXI_ARVALID <= 0;
+                    fsm_state     <= 1;
+                
+                // Otherwise, if we're pausing DMA, the ARADDR bus isn't valid
+                end else if (pause_dma)
+                    M_AXI_ARVALID <= 0;
+                
+                // Otherwise, generate a read-request for the next block in the PC buffer
+                else begin
+                    M_AXI_ARADDR     <= M_AXI_ARADDR + BYTES_PER_BURST;
+                    M_AXI_ARVALID    <= 1;
+                    blocks_remaining <= blocks_remaining - 1;
                 end
             end
 
