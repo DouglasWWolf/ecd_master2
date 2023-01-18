@@ -20,6 +20,9 @@ module ecd_master_ctrl
     // Interrupt request signals that the PC's buffer has been fully read
     output reg IRQ_EOB,
 
+    // This will strobe high the first time the output FIFO becomes full
+    output reg PRELOAD_COMPLETE,
+
     // This is high when data is being received from the PCI bridge and thrown away
     // This is for debugging only, and is not normally connected to anythings
     output DRAINING,
@@ -386,6 +389,36 @@ module ecd_master_ctrl
             // just keep track of how many blocks are left in this buffer
             else blocks_remaining_to_read <= blocks_remaining_to_read - 1;
         end
+    end
+    //==========================================================================
+
+
+    //==========================================================================
+    // This is the "preload-complete" state machine.  After a signal to start
+    // fetching data, this detects the first occurence of the output FIFO being
+    // full.  When this first "output FIFO is full" condition is detected, the 
+    // PRELOAD_COMPLETE signal is strobed high for one cycle.
+    //==========================================================================
+    reg pcsm;
+    always @(posedge clk) begin
+        
+        // When this signal is raised, it strobed high for exactly 1 cycle
+        PRELOAD_COMPLETE <= 0;
+
+        if (resetn == 0)
+            pcsm <= 0;
+        else case (pcsm)
+
+        // Here we're waiting to be told that data-fetching has started
+        0:  if (start_fetching_data) pcsm <= 1;
+
+        // Here we're waiting for the output FIFO to become full
+        1:  if (~AXIS_TX_TREADY) begin
+                PRELOAD_COMPLETE <= 1;
+                pcsm             <= 0;
+            end
+
+        endcase
     end
     //==========================================================================
 

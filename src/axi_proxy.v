@@ -22,6 +22,9 @@ module axi_proxy
     // Clock and reset
     input clk, resetn,
 
+    // This signal strobes high when the master data-FIFO first fills up
+    input preload_complete,
+
     //================  AXI Stream interface for the AXI request ===============
     output[511:0]  AXIS_OUT_TDATA,
     output reg     AXIS_OUT_TVALID,
@@ -68,6 +71,13 @@ module axi_proxy
     input                                   S_AXI_RREADY
     //==========================================================================
  );
+
+    //==========================================================================
+    // These describe the ECD AXI register that we use to inform the ECD that
+    // a job is about to start and it should pre-load its data FIFO
+    //==========================================================================
+    localparam ECD_PRELOAD_ADDR = 32'h0000_1000;
+    localparam ECD_PRELOAD_VALU = 32'h0000_000F;
 
     //==========================================================================
     // We'll communicate with the AXI4-Lite Slave core with these signals.
@@ -202,6 +212,16 @@ module axi_proxy
                         default: ashi_rresp <= SLVERR;
                     endcase
                 end
+ 
+                // If we're being told to write to the "preload-complete" AXI register...
+                else if (preload_complete) begin
+                    axi_addr_out    <= ECD_PRELOAD_ADDR; // Stuff the AXI address into TDATA
+                    axi_data_out    <= ECD_PRELOAD_VALU; // Stuff the data value into TDATA 
+                    axi_mode_out    <= AXI_MODE_WRITE;   // This will be an AXI write
+                    AXIS_OUT_TVALID <= 1;                // And declare TDATA valid for 1 cycle
+                    fsm_state       <= FSM_AXI_STREAM_HANDSHAKE;
+                    next_state      <= FSM_WAIT_FOR_WRESP;
+                 end
 
 
             // Here we wait for the AXI-Stream write to be accepted
