@@ -15,13 +15,9 @@ module bd_378d_wrapper
     SLOT_1_AXIS_tlast,
     SLOT_1_AXIS_tready,
     SLOT_1_AXIS_tvalid,
-    SLOT_2_AXIS_tdata,
-    SLOT_2_AXIS_tlast,
-    SLOT_2_AXIS_tready,
-    SLOT_2_AXIS_tvalid,
     clk,
     resetn);
-  input [255:0]SLOT_0_AXIS_tdata;
+  input [511:0]SLOT_0_AXIS_tdata;
   input SLOT_0_AXIS_tlast;
   input SLOT_0_AXIS_tready;
   input SLOT_0_AXIS_tvalid;
@@ -29,14 +25,10 @@ module bd_378d_wrapper
   input SLOT_1_AXIS_tlast;
   input SLOT_1_AXIS_tready;
   input SLOT_1_AXIS_tvalid;
-  input [511:0]SLOT_2_AXIS_tdata;
-  input SLOT_2_AXIS_tlast;
-  input SLOT_2_AXIS_tready;
-  input SLOT_2_AXIS_tvalid;
   input clk;
   input resetn;
 
-  wire [255:0]SLOT_0_AXIS_tdata;
+  wire [511:0]SLOT_0_AXIS_tdata;
   wire SLOT_0_AXIS_tlast;
   wire SLOT_0_AXIS_tready;
   wire SLOT_0_AXIS_tvalid;
@@ -44,10 +36,6 @@ module bd_378d_wrapper
   wire SLOT_1_AXIS_tlast;
   wire SLOT_1_AXIS_tready;
   wire SLOT_1_AXIS_tvalid;
-  wire [511:0]SLOT_2_AXIS_tdata;
-  wire SLOT_2_AXIS_tlast;
-  wire SLOT_2_AXIS_tready;
-  wire SLOT_2_AXIS_tvalid;
   wire clk;
   wire resetn;
 
@@ -60,10 +48,6 @@ module bd_378d_wrapper
         .SLOT_1_AXIS_tlast(SLOT_1_AXIS_tlast),
         .SLOT_1_AXIS_tready(SLOT_1_AXIS_tready),
         .SLOT_1_AXIS_tvalid(SLOT_1_AXIS_tvalid),
-        .SLOT_2_AXIS_tdata(SLOT_2_AXIS_tdata),
-        .SLOT_2_AXIS_tlast(SLOT_2_AXIS_tlast),
-        .SLOT_2_AXIS_tready(SLOT_2_AXIS_tready),
-        .SLOT_2_AXIS_tvalid(SLOT_2_AXIS_tvalid),
         .clk(clk),
         .resetn(resetn));
 endmodule

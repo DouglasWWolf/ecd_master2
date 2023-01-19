@@ -22,6 +22,9 @@ module event_broker #
     // This will strobe high for one cycle when an "overflow" event message arrives
     output reg event_underflow,
 
+    // This will strobe high for one cycle when the ECD detects "sequencing job complete"
+    output reg event_jobcomplete,
+
     //========================  AXI Stream interface for the input side  ============================
     input[DATA_WIDTH-1:0]   AXIS_IN_TDATA,
     input                   AXIS_IN_TVALID,
@@ -35,10 +38,11 @@ module event_broker #
     //===============================================================================================
 );
 
-localparam EVENT_UNDERFLOW = 1;
+localparam EVENT_UNDERFLOW   = 1;
+localparam EVENT_JOBCOMPLETE = 2;
 
-wire message_type = AXIS_IN_TDATA[255:248];
-wire event_type   = AXIS_IN_TDATA[7:0];
+wire[7:0] message_type = AXIS_IN_TDATA[255:248];
+wire[7:0] event_type   = AXIS_IN_TDATA[7:0];
 
 reg[1:0] fsm_state;
 
@@ -48,8 +52,9 @@ reg[1:0] fsm_state;
 //===============================================================================================
 always @(posedge clk) begin
     
-    // When this is raised, it strobes high for exactly one clock cycle
-    event_underflow <= 0;
+    // When these are raised, they strobe high for exactly one clock cycle
+    event_underflow   <= 0;
+    event_jobcomplete <= 0;
 
     // When we're in reset...
     if (resetn == 0) begin
@@ -73,8 +78,12 @@ always @(posedge clk) begin
                     AXIS_OUT_TVALID <= 1;
                     AXIS_IN_TREADY  <= 0;
                     fsm_state       <= 2;
-                end else if (message_type == 1 && event_type == EVENT_UNDERFLOW)
-                    event_underflow <= 1;
+                end
+                
+                else if (message_type == 1) begin
+                    if (event_type == EVENT_UNDERFLOW)   event_underflow   <= 1;
+                    if (event_type == EVENT_JOBCOMPLETE) event_jobcomplete <= 1;
+                end
             end
 
         // If the axi4lite response message was accepted...
