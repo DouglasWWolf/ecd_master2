@@ -76,7 +76,7 @@ preplace port port-id_qsfp0_up -pg 1 -lvl 10 -x 3110 -y 480 -defaultsOSRD
 preplace port port-id_qsfp1_up -pg 1 -lvl 10 -x 3110 -y 500 -defaultsOSRD
 preplace inst system_reset_100mhz -pg 1 -lvl 2 -x 470 -y 980 -swap {0 2 1 3 4 5 6 7 8 9} -defaultsOSRD -pinDir slowest_sync_clk left -pinY slowest_sync_clk 0L -pinDir ext_reset_in left -pinY ext_reset_in 40L -pinDir aux_reset_in left -pinY aux_reset_in 20L -pinDir mb_debug_sys_rst left -pinY mb_debug_sys_rst 60L -pinDir dcm_locked left -pinY dcm_locked 80L -pinDir mb_reset right -pinY mb_reset 0R -pinBusDir bus_struct_reset right -pinBusY bus_struct_reset 20R -pinBusDir peripheral_reset right -pinBusY peripheral_reset 40R -pinBusDir interconnect_aresetn right -pinBusY interconnect_aresetn 60R -pinBusDir peripheral_aresetn right -pinBusY peripheral_aresetn 80R
 preplace inst clock_buffer_100mhz -pg 1 -lvl 1 -x 150 -y 920 -defaultsOSRD -pinDir CLK_IN_D left -pinY CLK_IN_D 0L -pinBusDir IBUF_OUT right -pinBusY IBUF_OUT 0R
-preplace inst pcie_axi_bridge -pg 1 -lvl 3 -x 810 -y 560 -swap {20 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 89 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 0 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 53 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 113 112 114 115 116 117 118} -defaultsOSRD -pinDir S_BRIDGE_CTRL_AXI right -pinY S_BRIDGE_CTRL_AXI 20R -pinDir S_AXI_B right -pinY S_AXI_B 120R -pinDir pcie_mgt left -pinY pcie_mgt 0L -pinDir M_AXI_B right -pinY M_AXI_B 0R -pinDir S_INT_MGR_AXI right -pinY S_INT_MGR_AXI 40R -pinDir pci_refclk left -pinY pci_refclk 290L -pinDir axi_aresetn right -pinY axi_aresetn 160R -pinDir axi_aclk right -pinY axi_aclk 140R -pinDir led_pci_link_up right -pinY led_pci_link_up 180R -pinDir sys_rst_n left -pinY sys_rst_n 310L -pinDir IRQ_EOB_IN right -pinY IRQ_EOB_IN 200R -pinDir IRQ_UNDERFLOW_IN right -pinY IRQ_UNDERFLOW_IN 240R -pinDir IRQ_JOBCOMPLETE_IN right -pinY IRQ_JOBCOMPLETE_IN 260R
+preplace inst pcie_axi_bridge -pg 1 -lvl 3 -x 810 -y 560 -swap {20 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 93 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 0 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 57 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 117 116 118 119 120 121 122} -defaultsOSRD -pinDir S_BRIDGE_CTRL_AXI right -pinY S_BRIDGE_CTRL_AXI 20R -pinDir S_AXI_B right -pinY S_AXI_B 120R -pinDir pcie_mgt left -pinY pcie_mgt 0L -pinDir M_AXI_B right -pinY M_AXI_B 0R -pinDir S_INT_MGR_AXI right -pinY S_INT_MGR_AXI 40R -pinDir pci_refclk left -pinY pci_refclk 290L -pinDir axi_aresetn right -pinY axi_aresetn 160R -pinDir axi_aclk right -pinY axi_aclk 140R -pinDir led_pci_link_up right -pinY led_pci_link_up 180R -pinDir sys_rst_n left -pinY sys_rst_n 310L -pinDir IRQ_EOB_IN right -pinY IRQ_EOB_IN 200R -pinDir IRQ_UNDERFLOW_IN right -pinY IRQ_UNDERFLOW_IN 240R -pinDir IRQ_JOBCOMPLETE_IN right -pinY IRQ_JOBCOMPLETE_IN 260R
 preplace inst qsfp_data -pg 1 -lvl 9 -x 2920 -y 360 -swap {6 1 2 0 4 5 9 7 8 12 10 11 15 13 14 3 16 17 26 19 20 21 46 23 24 25 22 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 18 47 48 49 54 55 52 53 51 50} -defaultsOSRD -pinDir qsfp0_clk right -pinY qsfp0_clk 40R -pinDir qsfp0_tx right -pinY qsfp0_tx 0R -pinDir qsfp0_rx right -pinY qsfp0_rx 60R -pinDir qsfp1_tx right -pinY qsfp1_tx 80R -pinDir qsfp1_rx right -pinY qsfp1_rx 100R -pinDir qsfp1_clk right -pinY qsfp1_clk 20R -pinDir ROW_REQ_STREAM left -pinY ROW_REQ_STREAM 360L -pinDir QSFP_TX_STREAM left -pinY QSFP_TX_STREAM 420L -pinDir AXI_QSFP_STATUS left -pinY AXI_QSFP_STATUS 100L -pinDir EVENT_STREAM left -pinY EVENT_STREAM 0L -pinDir init_clk left -pinY init_clk 560L -pinDir resetn_in left -pinY resetn_in 740L -pinDir qsfp0_channel_up right -pinY qsfp0_channel_up 120R -pinDir qsfp1_channel_up right -pinY qsfp1_channel_up 140R -pinDir data_clock left -pinY data_clock 540L -pinDir data_aresetn left -pinY data_aresetn 520L
 preplace inst data_response_fifo -pg 1 -lvl 6 -x 1850 -y 680 -swap {0 1 2 3 4 5 6 7 9 8} -defaultsOSRD -pinDir S_AXIS left -pinY S_AXIS 0L -pinDir M_AXIS right -pinY M_AXIS 40R -pinDir s_axis_aresetn left -pinY s_axis_aresetn 40L -pinDir s_axis_aclk left -pinY s_axis_aclk 20L
 preplace inst restart_manager -pg 1 -lvl 5 -x 1490 -y 220 -swap {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 21 20 22} -defaultsOSRD -pinDir S_AXI left -pinY S_AXI 0L -pinDir clk left -pinY clk 40L -pinDir resetn left -pinY resetn 20L -pinDir restartn right -pinY restartn 40R
@@ -90,17 +90,17 @@ preplace inst axi4lite_proxy -pg 1 -lvl 7 -x 2210 -y 520 -defaultsOSRD -pinDir A
 preplace inst event_broker -pg 1 -lvl 6 -x 1850 -y 320 -swap {0 1 2 3 4 5 6 7 11 9 8 10} -defaultsOSRD -pinDir AXIS_IN right -pinY AXIS_IN 40R -pinDir AXIS_OUT right -pinY AXIS_OUT 60R -pinDir clk left -pinY clk 60L -pinDir resetn left -pinY resetn 20L -pinDir event_underflow left -pinY event_underflow 0L -pinDir event_jobcomplete left -pinY event_jobcomplete 40L
 preplace netloc ecd_master_ctrl_IRQ_PPB0 1 3 2 NJ 760 N
 preplace netloc ecd_master_ctrl_PRELOAD_COMPLETE 1 5 2 N 820 2030J
+preplace netloc event_broker_event_jobcomplete 1 3 3 NJ 820 1330J 420 1670
 preplace netloc event_broker_event_underflow 1 3 3 NJ 800 1310J 320 N
 preplace netloc ext_reset_in_0_1 1 0 2 NJ 1020 NJ
-preplace netloc ila_250mhz 1 3 6 970 780 1290 560 1690 780 2010 660 2390 900 NJ
+preplace netloc ila_250mhz 1 3 6 970 780 1290 560 1690 780 2010 660 2370 900 NJ
 preplace netloc pcie_axi_bridge_led_pci_link_up 1 3 7 NJ 740 1270J 160 NJ 160 NJ 160 NJ 160 NJ 160 NJ
 preplace netloc qsfp_data_channel_up_0 1 9 1 NJ 480
 preplace netloc qsfp_data_channel_up_1 1 9 1 NJ 500
 preplace netloc restartn 1 5 2 1650 800 2050
 preplace netloc system_reset_100mhz_peripheral_aresetn 1 2 7 650 1100 NJ 1100 NJ 1100 NJ 1100 NJ 1100 NJ 1100 N
 preplace netloc util_ds_buf_0_IBUF_OUT 1 1 8 280 920 NJ 920 NJ 920 NJ 920 NJ 920 NJ 920 NJ 920 N
-preplace netloc xdma_0_axi_aresetn 1 3 6 NJ 720 1250 440 NJ 440 NJ 440 2410 880 NJ
-preplace netloc event_broker_event_jobcomplete 1 3 3 NJ 820 1330J 420 1670
+preplace netloc xdma_0_axi_aresetn 1 3 6 NJ 720 1250 440 NJ 440 NJ 440 2390 880 NJ
 preplace netloc AXIS_RQ_1 1 7 2 NJ 720 N
 preplace netloc CLK_IN_D_0_1 1 0 1 NJ 920
 preplace netloc GT_DIFF_REFCLK1_0_1 1 9 1 NJ 400
@@ -108,7 +108,7 @@ preplace netloc GT_DIFF_REFCLK1_0_3 1 9 1 NJ 380
 preplace netloc GT_SERIAL_RX_0_1 1 9 1 NJ 420
 preplace netloc GT_SERIAL_RX_0_3 1 9 1 NJ 460
 preplace netloc aurora_64b66b_0_GT_SERIAL_TX 1 9 1 NJ 360
-preplace netloc axi_proxy_AXIS 1 7 1 2430 600n
+preplace netloc axi_proxy_AXIS 1 7 1 2410 600n
 preplace netloc axis_switch_0_AXIS_OUT 1 8 1 N 780
 preplace netloc data_response_fifo_M_AXIS 1 6 1 N 720
 preplace netloc ecd_master_ctrl_AXIS_TX 1 5 1 N 680
@@ -119,7 +119,7 @@ preplace netloc pcie_axi_bridge_M_AXI_B 1 3 1 N 560
 preplace netloc pcie_axi_bridge_pcie_mgt 1 0 3 NJ 560 NJ 560 NJ
 preplace netloc qsfp_data_EVENT_STREAM 1 6 3 NJ 360 NJ 360 N
 preplace netloc qsfp_data_GT_SERIAL_TX_0 1 9 1 NJ 440
-preplace netloc request_manager_AXIS_TX 1 7 1 2450 800n
+preplace netloc request_manager_AXIS_TX 1 7 1 2430 800n
 preplace netloc system_interconnect_M00_AXI 1 3 1 N 580
 preplace netloc system_interconnect_M01_AXI 1 3 1 N 600
 preplace netloc system_interconnect_M02_AXI 1 4 1 N 60
